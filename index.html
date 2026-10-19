@@ -23,7 +23,6 @@
 <input id="q" type="search" placeholder="Filtriraj…" aria-label="Filtriraj natječaje">
 <ul id="list"><li>Učitavanje…</li></ul>
 <script>
-  // On *.github.io/<repo>/ link to the repo's commit history for the data file
   const [owner] = location.hostname.split(".");
   const repo = location.pathname.split("/")[1];
   if (location.hostname.endsWith("github.io") && repo) {

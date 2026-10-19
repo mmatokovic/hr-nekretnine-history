@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -10,8 +11,21 @@ from pathlib import Path
 
 FEED = "https://hr-nekretnine.hr/vrsta-natjecaja/prodaja-nekretnina/feed/"
 OUT = Path("natjecaji.json")
-COMMIT_MSG = Path("/tmp/commit.txt")
+COMMIT_MSG = Path(tempfile.gettempdir()) / "commit.txt"
 UA = {"User-Agent": "Mozilla/5.0 (compatible; git-scraper)"}
+
+
+def ntfy(title, body, **headers):
+    if topic := os.environ.get("NTFY_TOPIC"):
+        req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=body.encode(), headers={"Title": title, **headers})
+        urllib.request.urlopen(req, timeout=30)
+
+
+def fail(error):
+    print(error)
+    ntfy("hr-nekretnine: scraper error", error, Tags="warning", Priority="high")
+    raise SystemExit(1)
+
 
 first_run = not OUT.exists()
 archive = {} if first_run else {i["link"]: i for i in json.loads(OUT.read_text(encoding="utf-8"))}
@@ -23,9 +37,11 @@ for page in range(1, 51):
         req = urllib.request.Request(f"{FEED}?paged={page}", headers=UA)
         root = ET.fromstring(urllib.request.urlopen(req, timeout=30).read())
     except urllib.error.HTTPError as e:
-        if e.code == 404:
+        if e.code == 404 and page > 1:
             break
-        raise
+        fail(f"{FEED}?paged={page}: HTTP {e.code}")
+    except Exception as e:
+        fail(f"{FEED}?paged={page}: {type(e).__name__}: {e}")
     seen_now = known | {i["link"] for i in fetched}
     items = [
         {
@@ -35,6 +51,8 @@ for page in range(1, 51):
         }
         for item in root.iter("item")
     ]
+    if page == 1 and not items:
+        fail(f"{FEED}: feed has 0 items")
     fetched += items
     if not any(i["link"] not in seen_now for i in items):
         break
@@ -56,13 +74,6 @@ if new:
 COMMIT_MSG.write_text("\n".join(msg) + "\n", encoding="utf-8")
 print("\n".join(msg))
 
-if new and (topic := os.environ.get("NTFY_TOPIC")):
+if new:
     body = "\n\n".join(f"{i['title']}\n{i['link']}" for i in new.values())
-    urllib.request.urlopen(
-        urllib.request.Request(
-            f"https://ntfy.sh/{topic}",
-            data=body.encode(),
-            headers={"Title": f"hr-nekretnine: {len(new)} new", "Tags": "house"},
-        ),
-        timeout=30,
-    )
+    ntfy(f"hr-nekretnine: {len(new)} new", body, Tags="house")
