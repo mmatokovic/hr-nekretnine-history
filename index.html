@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Natječaji za prodaju nekretnina</title>
+<style>
+  :root { color-scheme: light dark; --muted: #666; --line: #ddd; }
+  @media (prefers-color-scheme: dark) { :root { --muted: #999; --line: #333; } }
+  body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+  p.meta { color: var(--muted); margin-top: 0; }
+  input { width: 100%; padding: .5rem; font: inherit; box-sizing: border-box; margin: 1rem 0; }
+  ul { list-style: none; padding: 0; }
+  li { padding: .6rem 0; border-bottom: 1px solid var(--line); display: flex; gap: 1rem; }
+  time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+</style>
+</head>
+<body>
+<h1>Natječaji za prodaju nekretnina</h1>
+<p class="meta">Arhiva natječaja s <a href="https://hr-nekretnine.hr/vrsta-natjecaja/prodaja-nekretnina/">hr-nekretnine.hr</a>,
+  ažurira se dnevno. <a href="natjecaji.json">JSON</a> · <a id="history" href="#">povijest</a></p>
+<input id="q" type="search" placeholder="Filtriraj…" aria-label="Filtriraj natječaje">
+<ul id="list"><li>Učitavanje…</li></ul>
+<script>
+  // On *.github.io/<repo>/ link to the repo's commit history for the data file
+  const [owner] = location.hostname.split(".");
+  const repo = location.pathname.split("/")[1];
+  if (location.hostname.endsWith("github.io") && repo) {
+    document.getElementById("history").href = `https://github.com/${owner}/${repo}/commits/main/natjecaji.json`;
+  }
+
+  const list = document.getElementById("list");
+  const q = document.getElementById("q");
+  let items = [];
+
+  function render() {
+    const term = q.value.trim().toLowerCase();
+    list.replaceChildren(...items
+      .filter(i => !term || i.title.toLowerCase().includes(term))
+      .map(i => {
+        const li = document.createElement("li");
+        const time = document.createElement("time");
+        time.dateTime = i.published;
+        time.textContent = i.published;
+        const a = document.createElement("a");
+        a.href = i.link;
+        a.textContent = i.title;
+        li.append(time, a);
+        return li;
+      }));
+  }
+
+  fetch("natjecaji.json")
+    .then(r => r.json())
+    .then(data => { items = data; render(); })
+    .catch(() => { list.innerHTML = "<li>Greška pri učitavanju podataka.</li>"; });
+  q.addEventListener("input", render);
+</script>
+</body>
+</html>
