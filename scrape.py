@@ -18,14 +18,12 @@ archive = {} if first_run else {i["link"]: i for i in json.loads(OUT.read_text(e
 known = set(archive)
 fetched = []
 
-# The feed only holds the latest ~10 items, older ones are on ?paged=2, 3...
-# Walk pages until one brings nothing new: daily runs stop after page 1, the first run backfills everything.
 for page in range(1, 51):
     try:
         req = urllib.request.Request(f"{FEED}?paged={page}", headers=UA)
         root = ET.fromstring(urllib.request.urlopen(req, timeout=30).read())
     except urllib.error.HTTPError as e:
-        if e.code == 404:  # past the last page
+        if e.code == 404:
             break
         raise
     seen_now = known | {i["link"] for i in fetched}
